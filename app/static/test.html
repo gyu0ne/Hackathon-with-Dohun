@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>파이프라인 비교 실험 · 문서 한눈에</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <nav class="nav" aria-label="주 메뉴">
+      <a class="brand" href="/">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 12h7M9 16h7"/></svg>
+        </span>
+        <span>문서 한눈에</span>
+      </a>
+      <div class="nav-links">
+        <a href="/">문서 분석</a>
+        <a class="active" href="/test">비교 실험</a>
+      </div>
+    </nav>
+  </header>
+
+  <main class="page">
+    <section class="hero">
+      <div class="eyebrow">연구·검증 화면</div>
+      <h1>같은 문서, 다른 처리 방식</h1>
+      <p>같은 촬영본에서 고해상도 원본, 문서 펴기 필터, 일반 OCR을 실행해 각 단계의 효과를 분리해 비교합니다.</p>
+    </section>
+
+    <div class="method-note">
+      <div><strong>고해상도 원본</strong><span>품질 판정 → 1536px PP-OCRv5 한국어 검출·인식 → 근거 줄 검증</span></div>
+      <div><strong>문서 펴기 필터</strong><span>Paddle UVDoc 언워핑 → 같은 1536px PP-OCRv5 · OCR만 비교</span></div>
+      <div><strong>일반 기준선</strong><span>원본 회색조 → 배포판 기본 Tesseract·자동 페이지 분할 → 일반 요약</span></div>
+    </div>
+
+    <form id="compareForm" class="card upload-card">
+      <label id="dropzone" class="dropzone" for="fileInput">
+        <input id="fileInput" type="file" accept="image/jpeg,image/png" hidden>
+        <span><span class="upload-icon" aria-hidden="true">⇄</span><strong>비교할 문서 이미지를 선택하세요</strong><span>세 경로를 순서대로 실행하므로 잠시 시간이 걸릴 수 있습니다.</span></span>
+      </label>
+      <div class="upload-actions">
+        <span id="fileName" class="file-name">선택된 파일이 없습니다.</span>
+        <button id="compareButton" class="button" type="submit" disabled>비교 실행하기</button>
+      </div>
+    </form>
+
+    <div id="loading" class="loading hidden" role="status"><span class="spinner"></span><span>세 가지 OCR 경로와 요약을 실행하고 있습니다…</span></div>
+    <div id="errorBox" class="error-box hidden" role="alert"></div>
+
+    <section id="comparisonResults" class="hidden">
+      <div class="results-grid">
+        <article class="card panel">
+          <div class="panel-head"><h2>입력 문서</h2><span id="qualityBadge" class="badge"></span></div>
+          <div class="preview-wrap"><img id="previewImage" alt="비교할 문서"><div id="overlay" class="overlay"></div></div>
+        </article>
+        <article class="card panel">
+          <div class="panel-head"><h2>측정 결과</h2><span class="badge info">단일 실행</span></div>
+          <div class="table-scroll">
+            <table class="comparison-table">
+              <thead><tr><th>지표</th><th>고해상도 원본</th><th>문서 펴기</th><th>일반 방식</th></tr></thead>
+              <tbody id="metricsBody"></tbody>
+            </table>
+          </div>
+          <p class="metric-caption">모델 내부 확신도는 정답률이 아닙니다. 스캔은 AI-Hub CER·WER, 실제 촬영본은 순서 독립 단어·숫자 F1으로 판정합니다.</p>
+        </article>
+      </div>
+
+      <div class="comparison-grid">
+        <article class="card panel comparison-card">
+          <div class="panel-head"><h2>우리 파이프라인</h2><span id="oursBadge" class="badge success">완료</span></div>
+          <div id="oursSummary"></div>
+          <div class="section-label">OCR 원문</div>
+          <div id="oursOcr" class="ocr-list"></div>
+        </article>
+        <article class="card panel comparison-card">
+          <div class="panel-head"><h2>문서 펴기 필터 OCR</h2><span id="filterBadge" class="badge info">실험군</span></div>
+          <div class="notice">요약 모델은 실행하지 않고, 같은 OCR 모델에서 이미지 언워핑의 영향만 분리합니다.</div>
+          <div class="section-label">OCR 원문</div>
+          <div id="filterOcr" class="ocr-list"></div>
+        </article>
+        <article class="card panel comparison-card">
+          <div class="panel-head"><h2>일반 OCR + LLM</h2><span class="badge info">기준선</span></div>
+          <div id="baselineSummary" class="plain-summary"></div>
+          <div class="section-label">OCR 원문</div>
+          <div id="baselineOcr" class="ocr-list"></div>
+        </article>
+      </div>
+    </section>
+  </main>
+  <script src="/static/test.js" defer></script>
+</body>
+</html>

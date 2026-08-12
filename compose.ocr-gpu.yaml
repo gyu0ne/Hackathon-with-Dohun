@@ -1,0 +1,22 @@
+services:
+  ocr-trainer:
+    build:
+      context: .
+      dockerfile: ocr_training/Dockerfile.gpu
+    image: kcode-public-doc-train:latest
+    init: true
+    gpus: all
+    shm_size: "8gb"
+    stop_grace_period: 10m
+    working_dir: /workspace
+    environment:
+      PYTHONPATH: /workspace:/opt/PaddleOCR
+      PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK: "True"
+      OCR_EPOCHS: ${OCR_EPOCHS:-20}
+      OCR_BATCH_SIZE: ${OCR_BATCH_SIZE:-64}
+      OCR_SAVE_BATCH_STEP: ${OCR_SAVE_BATCH_STEP:-500}
+    volumes:
+      - .:/workspace
+      - ${AIHUB_OCR_DATA:?Set AIHUB_OCR_DATA to the public-document OCR dataset directory}:/datasets/aihub_ocr:ro
+    stdin_open: true
+    tty: true

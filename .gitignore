@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+.env
+Test Data/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+data/*.db
+research/manifests/
+research/external_photos/
+# Generated reports may contain AI-Hub labels or OCR text.
+research/results/*.json
+ocr_training/data/
+ocr_training/data_smoke/
+ocr_training/artifacts/
+ocr_training/work/
+.env.ocr

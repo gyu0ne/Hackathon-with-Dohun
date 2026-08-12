@@ -1,0 +1,27 @@
+FROM paddlepaddle/paddle:3.3.1-gpu-cuda12.6-cudnn9.5 AS paddleocr-source
+
+ARG PADDLEOCR_REF=v3.7.0
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/workspace:/opt/PaddleOCR \
+    PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK=True
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git libgl1 libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN git clone --depth 1 --branch "${PADDLEOCR_REF}" \
+    https://github.com/PaddlePaddle/PaddleOCR.git /opt/PaddleOCR
+
+COPY ocr_training/patch_paddleocr.py /tmp/patch_paddleocr.py
+RUN python /tmp/patch_paddleocr.py /opt/PaddleOCR/tools/program.py \
+    && rm /tmp/patch_paddleocr.py
+
+FROM paddleocr-source AS trainer
+
+RUN python -m pip install --no-cache-dir -r /opt/PaddleOCR/requirements.txt \
+    && python -m pip install --no-cache-dir "paddleocr==3.7.0" "paddlex[ocr]==3.7.2"
+
+WORKDIR /workspace
+CMD ["bash"]

@@ -1,0 +1,15 @@
+.env
+.git/
+Test Data/
+data/
+research/manifests/
+research/external_photos/
+ocr_training/data/
+ocr_training/data_smoke/
+ocr_training/artifacts/
+ocr_training/work/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

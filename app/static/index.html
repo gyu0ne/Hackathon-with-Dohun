@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="공공문서를 촬영하면 핵심 내용과 원문 근거를 함께 보여주는 문서 도우미">
+  <title>문서 한눈에</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <nav class="nav" aria-label="주 메뉴">
+      <a class="brand" href="/">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 12h7M9 16h7"/></svg>
+        </span>
+        <span>문서 한눈에</span>
+      </a>
+      <div class="nav-links">
+        <a class="active" href="/">문서 분석</a>
+        <a href="/test">비교 실험</a>
+      </div>
+    </nav>
+  </header>
+
+  <main class="page">
+    <section class="hero">
+      <div class="eyebrow">AI 공공문서 도우미</div>
+      <h1>복잡한 공문서도<br>근거와 함께 한눈에</h1>
+      <p>문서를 촬영하거나 이미지를 올리면 읽기 상태를 먼저 확인하고, 핵심 내용과 해야 할 일을 원문 위치와 함께 정리합니다.</p>
+    </section>
+
+    <form id="uploadForm" class="card upload-card">
+      <label id="dropzone" class="dropzone" for="fileInput">
+        <input id="fileInput" name="file" type="file" accept="image/jpeg,image/png" hidden>
+        <span>
+          <span class="upload-icon" aria-hidden="true">↥</span>
+          <strong>문서 이미지를 선택하세요</strong>
+          <span>JPEG 또는 PNG · 최대 10MB</span>
+        </span>
+      </label>
+      <div class="upload-actions">
+        <span id="fileName" class="file-name">선택된 파일이 없습니다.</span>
+        <button id="analyzeButton" class="button" type="submit" disabled>문서 분석하기</button>
+      </div>
+    </form>
+
+    <div id="loading" class="loading hidden" role="status">
+      <span class="spinner" aria-hidden="true"></span>
+      <span>문서를 읽고 근거를 연결하고 있습니다…</span>
+    </div>
+    <div id="errorBox" class="error-box hidden" role="alert"></div>
+
+    <section id="results" class="results-grid hidden" aria-live="polite">
+      <div class="stack">
+        <article class="card panel">
+          <div class="panel-head">
+            <h2>원본 문서</h2>
+            <span id="qualityBadge" class="badge">확인 중</span>
+          </div>
+          <div id="previewWrap" class="preview-wrap">
+            <img id="previewImage" alt="업로드한 문서 미리보기">
+            <div id="overlay" class="overlay"></div>
+          </div>
+          <div class="metric-row">
+            <div class="metric-box"><span>초점 지표</span><strong id="blurMetric">-</strong></div>
+            <div class="metric-box"><span>텍스트 대비</span><strong id="ssimMetric">-</strong></div>
+            <div class="metric-box"><span>전체 처리</span><strong id="totalMetric">-</strong></div>
+          </div>
+        </article>
+
+        <article id="ocrPanel" class="card panel hidden">
+          <div class="panel-head">
+            <h2>인식된 원문</h2>
+            <span id="ocrCount" class="badge info"></span>
+          </div>
+          <div id="ocrList" class="ocr-list"></div>
+        </article>
+      </div>
+
+      <div class="stack">
+        <article id="summaryPanel" class="card panel hidden">
+          <div class="panel-head">
+            <h2>AI 요약</h2>
+            <span id="aiBadge" class="badge info"></span>
+          </div>
+          <h3 id="summaryTitle" class="summary-title"></h3>
+          <div id="overview" class="overview"></div>
+          <div id="keyPointSection">
+            <div class="section-label">핵심 내용</div>
+            <div id="keyPoints" class="fact-list"></div>
+          </div>
+          <div id="actionSection">
+            <div class="section-label">해야 할 일</div>
+            <div id="actions" class="fact-list"></div>
+          </div>
+        </article>
+
+        <article id="retakePanel" class="card panel hidden">
+          <div class="panel-head"><h2>다시 촬영해 주세요</h2><span class="badge warning">품질 확인</span></div>
+          <p class="notice">문서가 흐리거나 글자 대비가 낮아 잘못된 안내가 생성될 수 있습니다. 화면을 문서와 평행하게 두고 밝은 곳에서 다시 촬영해 주세요.</p>
+        </article>
+
+        <article id="feedbackPanel" class="card panel feedback hidden">
+          <div class="panel-head"><h2>결과가 도움이 되었나요?</h2></div>
+          <div class="feedback-actions">
+            <button id="acceptButton" class="button secondary" type="button">네, 정확해요</button>
+            <button id="rejectButton" class="button danger-soft" type="button">수정이 필요해요</button>
+          </div>
+          <div id="correctionBox" class="hidden">
+            <textarea id="correctedText" aria-label="수정할 내용" placeholder="틀리거나 빠진 내용을 적어 주세요."></textarea>
+            <button id="sendCorrection" class="button" type="button">수정 내용 보내기</button>
+          </div>
+          <p id="feedbackMessage" class="hidden"></p>
+        </article>
+      </div>
+    </section>
+  </main>
+  <script src="/static/app.js" defer></script>
+</body>
+</html>
