@@ -13,3 +13,5 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.env.ocr
+ocr_training/032.공공행정문서_OCR/
