@@ -14,6 +14,7 @@ DatasetSplit = Literal["train", "dev", "final"]
 
 IMAGE_SUFFIXES = (".jpg", ".jpeg", ".png")
 PROGRESS_EVERY_LABELS = 5000
+DEFAULT_MAX_TEXT_LENGTH = 25
 
 
 @dataclass(frozen=True)
@@ -283,6 +284,36 @@ def _load_json_bytes(raw: bytes) -> Any:
     return json.loads(raw)
 
 
+def valid_annotation_indices(
+    annotations: object,
+    max_text_length: int = DEFAULT_MAX_TEXT_LENGTH,
+) -> list[int]:
+    """Return annotation positions that can become recognition samples."""
+    if not isinstance(annotations, list):
+        return []
+
+    valid: list[int] = []
+    for index, annotation in enumerate(annotations):
+        if not isinstance(annotation, dict):
+            continue
+
+        text = " ".join(str(annotation.get("annotation.text", "")).split())
+        bbox = annotation.get("annotation.bbox")
+        if not text or len(text) > max_text_length:
+            continue
+        if not isinstance(bbox, list) or len(bbox) != 4:
+            continue
+        try:
+            _, _, width, height = (float(value) for value in bbox)
+        except (TypeError, ValueError):
+            continue
+        if width <= 0 or height <= 0:
+            continue
+        valid.append(index)
+
+    return valid
+
+
 def build_split_rows(
     archives: ArchiveSet,
     dataset_root: Path,
@@ -395,9 +426,7 @@ def build_split_rows(
                     image_path, image_member = matched
 
                     annotations = payload.get("annotations", [])
-                    annotation_count = (
-                        len(annotations) if isinstance(annotations, list) else 0
-                    )
+                    sample_indices = valid_annotation_indices(annotations)
 
                     rows.append(
                         {
@@ -426,7 +455,10 @@ def build_split_rows(
                                 dataset_root,
                             ),
                             "label_member": info.filename,
-                            "annotation_count": annotation_count,
+                            "annotation_count": (
+                                len(annotations) if isinstance(annotations, list) else 0
+                            ),
+                            "sample_count": len(sample_indices),
                         }
                     )
 

@@ -14,9 +14,10 @@ RUN apt-get update \
 RUN git clone --depth 1 --branch "${PADDLEOCR_REF}" \
     https://github.com/PaddlePaddle/PaddleOCR.git /opt/PaddleOCR
 
-COPY ocr_training/patch_paddleocr.py /tmp/patch_paddleocr.py
+COPY ocr_training/patch_paddleocr.py ocr_training/patch_paddleocr_data.py /tmp/
 RUN python /tmp/patch_paddleocr.py /opt/PaddleOCR/tools/program.py \
-    && rm /tmp/patch_paddleocr.py
+    && python /tmp/patch_paddleocr_data.py /opt/PaddleOCR/ppocr/data/__init__.py \
+    && rm /tmp/patch_paddleocr.py /tmp/patch_paddleocr_data.py
 
 FROM paddleocr-source AS trainer
 

@@ -30,6 +30,7 @@ def main() -> None:
     dataset_root = resolve_dataset_root(args.data_root)
     splits = ("validation",) if args.validation_only else ("training", "validation")
     report: dict[str, object] = {
+        "schema_version": 2,
         "dataset_root": str(dataset_root),
         "contract": "AI-Hub Training -> train/dev; AI-Hub Validation -> final only",
     }

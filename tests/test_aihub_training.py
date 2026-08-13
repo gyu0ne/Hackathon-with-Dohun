@@ -57,6 +57,7 @@ def test_training_is_stratified_into_train_and_dev(tmp_path: Path) -> None:
     assert {row["dataset_split"] for row in rows} == {"train", "dev"}
     assert stats["dataset_split_counts"] == {"train": 18, "dev": 2, "final": 0}
     assert all(row["source_split"] == "training" for row in rows)
+    assert all(row["sample_count"] == 1 for row in rows)
 
 
 def test_aihub_validation_is_final_only(tmp_path: Path) -> None:

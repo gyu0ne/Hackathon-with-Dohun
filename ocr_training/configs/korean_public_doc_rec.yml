@@ -9,7 +9,7 @@ Global:
   save_epoch_step: 1
   save_batch_step: 500
   recovery_keep: 3
-  eval_batch_step: [0, 2000]
+  eval_batch_step: [0, 10000]
   cal_metric_during_train: true
   pretrained_model:
   checkpoints:
@@ -76,24 +76,17 @@ Metric:
 
 Train:
   dataset:
-    name: MultiScaleDataSet
-    ds_width: false
-    data_dir: /workspace/ocr_training/data
-    ext_op_transform_idx: 1
-    label_file_list:
-    - /workspace/ocr_training/data/train.txt
+    name: AIHubStreamDataSet
+    split: train
+    index_dir: /workspace/ocr_training/data
+    data_root: /datasets/aihub_ocr
+    cache_mb: 128
+    padding_ratio: 0.06
     transforms:
-    - DecodeImage:
-        img_mode: BGR
-        channel_first: false
-    - RecConAug:
-        prob: 0.5
-        ext_data_num: 2
-        image_shape: [48, 320, 3]
-        max_text_length: *max_text_length
-    - RecAug:
     - MultiLabelEncode:
         gtc_encode: NRTRLabelEncode
+    - RecResizeImg:
+        image_shape: [3, 48, 320]
     - KeepKeys:
         keep_keys:
         - image
@@ -102,12 +95,10 @@ Train:
         - length
         - valid_ratio
   sampler:
-    name: MultiScaleSampler
-    scales: [[320, 32], [320, 48], [320, 64]]
-    first_bs: &batch_size 64
-    fix_bs: false
-    divided_factor: [8, 16]
-    is_training: true
+    name: DocumentBatchSampler
+    batch_size: &batch_size 64
+    drop_last: true
+    seed: 2026
   loader:
     shuffle: true
     batch_size_per_card: *batch_size
@@ -116,14 +107,13 @@ Train:
 
 Eval:
   dataset:
-    name: SimpleDataSet
-    data_dir: /workspace/ocr_training/data
-    label_file_list:
-    - /workspace/ocr_training/data/dev.txt
+    name: AIHubStreamDataSet
+    split: dev
+    index_dir: /workspace/ocr_training/data
+    data_root: /datasets/aihub_ocr
+    cache_mb: 128
+    padding_ratio: 0.06
     transforms:
-    - DecodeImage:
-        img_mode: BGR
-        channel_first: false
     - MultiLabelEncode:
         gtc_encode: NRTRLabelEncode
     - RecResizeImg:

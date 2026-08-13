@@ -37,11 +37,14 @@ def patch_program(path: Path) -> bool:
             \"received signal %s; saving a recovery checkpoint after this batch\", signum
         )
 
-    if dist.get_rank() == 0:
-        signal.signal(signal.SIGTERM, request_graceful_stop)
-        signal.signal(signal.SIGINT, request_graceful_stop)
+    signal.signal(signal.SIGTERM, request_graceful_stop)
+    signal.signal(signal.SIGINT, request_graceful_stop)
 
-    resume_batch = int(best_model_dict.pop(\"resume_batch\", 0))
+    resume_batch = int(config[\"Global\"].get(\"resume_batch\", 0))
+    resume_epoch = int(config[\"Global\"].get(\"resume_epoch\", 0))
+    if resume_batch and resume_epoch != start_epoch:
+        raise RuntimeError(\"resume batch epoch does not match checkpoint epoch\")
+    best_model_dict[\"data_fingerprint\"] = config[\"Global\"].get(\"data_fingerprint\")
 
     def begin_checkpoint(prefix):
         marker = os.path.join(save_model_dir, prefix + \".complete\")
@@ -65,8 +68,9 @@ def patch_program(path: Path) -> bool:
         resume_state = dict(best_model_dict)
         resume_state.update(
             start_epoch=epoch,
-            resume_batch=idx + 1,
+            resume_batch=current_batch_number + 1,
             global_step=global_step,
+            data_fingerprint=config["Global"].get("data_fingerprint"),
         )
         save_model(
             model,
@@ -101,13 +105,34 @@ def patch_program(path: Path) -> bool:
     )
     source = _replace_once(
         source,
+        """    for epoch in range(start_epoch, epoch_num + 1):
+        if train_dataloader.dataset.need_reset:
+""",
+        """    for epoch in range(start_epoch, epoch_num + 1):
+        if hasattr(train_dataloader.dataset, "reset_data_lines"):
+            train_dataloader.dataset.reset_data_lines(seed=epoch, epoch=epoch)
+        if hasattr(train_dataloader.batch_sampler, "set_epoch"):
+            train_dataloader.batch_sampler.set_epoch(epoch)
+        if train_dataloader.dataset.need_reset:
+""",
+    )
+    source = _replace_once(
+        source,
+        """            if hasattr(train_dataloader.batch_sampler, "set_epoch"):
+                train_dataloader.batch_sampler.set_epoch(0)
+""",
+        """            pass
+""",
+    )
+    source = _replace_once(
+        source,
         """        for idx, batch in enumerate(train_dataloader):
             model.train()
 """,
         """        for idx, batch in enumerate(train_dataloader):
-            if epoch == start_epoch and idx < resume_batch:
-                reader_start = time.time()
-                continue
+            current_batch_number = (
+                getattr(train_dataloader.batch_sampler, "batch_offset", 0) + idx
+            )
             model.train()
 """,
     )

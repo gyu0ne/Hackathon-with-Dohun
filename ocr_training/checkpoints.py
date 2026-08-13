@@ -36,6 +36,17 @@ def checkpoint_progress(prefix: Path) -> tuple[int, int, int]:
     return (global_step, epoch, recovery_step)
 
 
+def checkpoint_data_fingerprint(prefix: Path) -> str | None:
+    try:
+        with prefix.with_suffix(".states").open("rb") as source:
+            state: dict[str, Any] = pickle.load(source)  # noqa: S301 - trusted local output
+        best = state.get("best_model_dict", {})
+        value = best.get("data_fingerprint") if isinstance(best, dict) else None
+        return str(value) if value else None
+    except (OSError, ValueError, TypeError, pickle.PickleError, EOFError):
+        return None
+
+
 def find_latest_checkpoint(directory: Path) -> Path | None:
     if not directory.is_dir():
         return None

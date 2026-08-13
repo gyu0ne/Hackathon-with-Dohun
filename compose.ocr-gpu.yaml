@@ -15,6 +15,8 @@ services:
       OCR_EPOCHS: ${OCR_EPOCHS:-20}
       OCR_BATCH_SIZE: ${OCR_BATCH_SIZE:-64}
       OCR_SAVE_BATCH_STEP: ${OCR_SAVE_BATCH_STEP:-500}
+      OCR_PRETRAINED_MODEL: ${OCR_PRETRAINED_MODEL:-ocr_training/artifacts/pretrained/korean_PP-OCRv5_mobile_rec_pretrained.pdparams}
+      OCR_BASELINE_MODEL_DIR: ${OCR_BASELINE_MODEL_DIR:-}
     volumes:
       - .:/workspace
       - ${AIHUB_OCR_DATA:?Set AIHUB_OCR_DATA to the public-document OCR dataset directory}:/datasets/aihub_ocr:ro

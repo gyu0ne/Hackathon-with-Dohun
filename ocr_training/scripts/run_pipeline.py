@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import signal
 import subprocess
@@ -9,7 +10,6 @@ from pathlib import Path
 
 from ocr_training.scripts.check_environment import inspect_environment
 
-
 MANIFEST_FILES = (
     Path("ocr_training/work/manifests/training.jsonl"),
     Path("ocr_training/work/manifests/validation.jsonl"),
@@ -17,25 +17,48 @@ MANIFEST_FILES = (
 )
 
 DATASET_FILES = (
-    Path("ocr_training/data/train.txt"),
-    Path("ocr_training/data/dev.txt"),
+    Path("ocr_training/data/documents.sqlite3"),
+    Path("ocr_training/data/train_documents.npy"),
+    Path("ocr_training/data/train_sample_ends.npy"),
+    Path("ocr_training/data/dev_documents.npy"),
+    Path("ocr_training/data/dev_sample_ends.npy"),
     Path("ocr_training/data/final_clean.txt"),
     Path("ocr_training/data/final_camera.txt"),
     Path("ocr_training/data/final_camera_filtered.txt"),
-    Path("ocr_training/data/metadata.jsonl"),
-    Path("ocr_training/data/summary.json"),
+    Path("ocr_training/data/prepare_state.json"),
 )
 
 PRETRAINED_MODEL = Path(
-    "ocr_training/artifacts/pretrained/"
-    "korean_PP-OCRv5_mobile_rec_pretrained.pdparams"
+    os.getenv(
+        "OCR_PRETRAINED_MODEL",
+        "ocr_training/artifacts/pretrained/"
+        "korean_PP-OCRv5_mobile_rec_pretrained.pdparams",
+    )
 )
+
+BASELINE_MODEL_DIR = os.getenv("OCR_BASELINE_MODEL_DIR", "").strip()
 
 
 def _files_ready(
     paths: tuple[Path, ...],
 ) -> bool:
     return all(path.is_file() for path in paths)
+
+
+def _json_version(path: Path) -> int | None:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        return int(payload.get("schema_version"))
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        return None
+
+
+def _manifests_ready() -> bool:
+    return _files_ready(MANIFEST_FILES) and _json_version(MANIFEST_FILES[-1]) == 2
+
+
+def _dataset_ready() -> bool:
+    return _files_ready(DATASET_FILES) and _json_version(DATASET_FILES[-1]) == 1
 
 
 def _print_missing(
@@ -151,6 +174,7 @@ def main() -> None:
             "train",
             "export",
             "evaluate",
+            "package",
             "all",
         ),
         default="all",
@@ -186,14 +210,11 @@ def main() -> None:
         ),
     )
     parser.add_argument(
-        "--max-training-documents",
-        type=int,
-    )
-    parser.add_argument(
         "--final-documents",
         type=int,
         default=120,
     )
+    parser.add_argument("--dev-max-samples", type=int, default=10_000)
     parser.add_argument(
         "--force-prepare",
         action="store_true",
@@ -208,13 +229,6 @@ def main() -> None:
         f"save_batch_step={args.save_batch_step}",
         flush=True,
     )
-
-    if args.max_training_documents is not None:
-        print(
-            "[pipeline] max training documents: "
-            f"{args.max_training_documents}",
-            flush=True,
-        )
 
     print(
         f"[pipeline] checking environment for: "
@@ -244,12 +258,8 @@ def main() -> None:
     )
 
     if args.stage in {"prepare", "all"}:
-        manifests_ready = _files_ready(
-            MANIFEST_FILES
-        )
-        dataset_ready = _files_ready(
-            DATASET_FILES
-        )
+        manifests_ready = _manifests_ready()
+        dataset_ready = _dataset_ready()
         pretrained_ready = PRETRAINED_MODEL.is_file()
 
         _print_missing(
@@ -300,13 +310,9 @@ def main() -> None:
                 str(args.final_documents),
             ]
 
-            if args.max_training_documents is not None:
-                dataset_args.extend(
-                    [
-                        "--max-training-documents",
-                        str(args.max_training_documents),
-                    ]
-                )
+            dataset_args.extend(
+                ["--dev-max-samples", str(args.dev_max_samples)]
+            )
 
             run(
                 "ocr_training.scripts.build_dataset",
@@ -319,18 +325,12 @@ def main() -> None:
             )
 
         if not pretrained_ready:
-            print(
-                "[pipeline] downloading pretrained model",
-                flush=True,
+            raise FileNotFoundError(
+                "The pretrained model is required and will not be downloaded. "
+                f"Place it at {PRETRAINED_MODEL} or set OCR_PRETRAINED_MODEL."
             )
-            run(
-                "ocr_training.scripts.download_pretrained"
-            )
-        else:
-            print(
-                "[pipeline] pretrained model already present; skipping",
-                flush=True,
-            )
+        print("[pipeline] using existing pretrained model", flush=True)
+        run("ocr_training.scripts.validate_pretrained", str(PRETRAINED_MODEL))
 
         _print_missing(
             "manifests after prepare",
@@ -341,12 +341,12 @@ def main() -> None:
             DATASET_FILES,
         )
 
-        if not _files_ready(MANIFEST_FILES):
+        if not _manifests_ready():
             raise RuntimeError(
                 "Prepare stage finished but manifest files are incomplete"
             )
 
-        if not _files_ready(DATASET_FILES):
+        if not _dataset_ready():
             raise RuntimeError(
                 "Prepare stage finished but dataset files are incomplete"
             )
@@ -355,14 +355,13 @@ def main() -> None:
             raise RuntimeError(
                 "Prepare stage finished but pretrained model is missing"
             )
-
         print(
             "[pipeline] prepare stage verified successfully",
             flush=True,
         )
 
     if args.stage in {"train", "all"}:
-        if not _files_ready(DATASET_FILES):
+        if not _dataset_ready():
             _print_missing(
                 "training prerequisites",
                 DATASET_FILES,
@@ -377,6 +376,7 @@ def main() -> None:
                 "Pretrained model is missing. "
                 "Run --stage prepare first."
             )
+        run("ocr_training.scripts.validate_pretrained", str(PRETRAINED_MODEL))
 
         print(
             "[pipeline] starting training",
@@ -385,6 +385,8 @@ def main() -> None:
 
         run(
             "ocr_training.scripts.train",
+            "--pretrained",
+            str(PRETRAINED_MODEL),
             "--epochs",
             str(args.epochs),
             "--batch-size",
@@ -394,6 +396,9 @@ def main() -> None:
         )
 
     if args.stage in {"export", "all"}:
+        completion = Path("ocr_training/artifacts/checkpoints/training_complete.json")
+        if not completion.is_file():
+            raise SystemExit("Full training is not complete; export was not started")
         print(
             "[pipeline] exporting model",
             flush=True,
@@ -410,10 +415,40 @@ def main() -> None:
             "ocr_training/artifacts/inference/public_doc_rec"
         )
 
-        print(
-            "[pipeline] evaluating baseline and finetuned models",
-            flush=True,
-        )
+        models: list[tuple[str, list[str]]] = [
+            (
+                "finetuned",
+                [
+                    "--model-dir",
+                    custom_model,
+                ],
+            )
+        ]
+
+        if BASELINE_MODEL_DIR:
+            baseline_model = Path(BASELINE_MODEL_DIR)
+            if not baseline_model.is_dir():
+                raise FileNotFoundError(
+                    "OCR_BASELINE_MODEL_DIR is not a directory: "
+                    f"{baseline_model}"
+                )
+            models.insert(
+                0,
+                (
+                    "baseline",
+                    ["--model-dir", str(baseline_model)],
+                ),
+            )
+            print(
+                "[pipeline] evaluating local baseline and finetuned models",
+                flush=True,
+            )
+        else:
+            print(
+                "[pipeline] evaluating the finetuned model; "
+                "baseline skipped because OCR_BASELINE_MODEL_DIR is empty",
+                flush=True,
+            )
 
         for variant in (
             "clean",
@@ -434,16 +469,7 @@ def main() -> None:
                     f"Evaluation label file is empty: {label_file}"
                 )
 
-            for model_name, model_args in (
-                ("baseline", []),
-                (
-                    "finetuned",
-                    [
-                        "--model-dir",
-                        custom_model,
-                    ],
-                ),
-            ):
+            for model_name, model_args in models:
                 print(
                     f"[pipeline] evaluate "
                     f"{model_name}/{variant}",
@@ -465,6 +491,14 @@ def main() -> None:
                     ),
                     *model_args,
                 )
+
+    if args.stage in {"package", "all"}:
+        completion = Path("ocr_training/artifacts/checkpoints/training_complete.json")
+        model_dir = Path("ocr_training/artifacts/inference/public_doc_rec")
+        if not completion.is_file() or not model_dir.is_dir():
+            raise SystemExit("Full training and model export must complete before packaging")
+        print("[pipeline] creating transferable model package", flush=True)
+        run("ocr_training.scripts.package_model")
 
     print(
         f"[pipeline] stage '{args.stage}' finished successfully",
