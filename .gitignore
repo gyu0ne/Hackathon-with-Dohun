@@ -15,3 +15,4 @@ ocr_training/data_smoke/
 ocr_training/artifacts/
 ocr_training/work/
 .env.ocr
+ocr_training/032.공공행정문서_OCR/
