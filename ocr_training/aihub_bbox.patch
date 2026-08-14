@@ -1,0 +1,20 @@
+*** a/ocr_training/aihub.py
+--- b/ocr_training/aihub.py
+@@
+-import hashlib
++import hashlib
+ import json
++import math
+ import zipfile
+@@
+-        try:
+-            _, _, width, height = (float(value) for value in bbox)
++        try:
++            x, y, width, height = (float(value) for value in bbox)
+         except (TypeError, ValueError):
+             continue
+-        if width <= 0 or height <= 0:
++        if not all(math.isfinite(value) for value in (x, y, width, height)):
++            continue
++        if width < 2 or height < 2:
+             continue

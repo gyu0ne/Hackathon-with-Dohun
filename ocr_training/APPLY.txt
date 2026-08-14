@@ -1,0 +1,25 @@
+적용 위치
+
+streaming_dataset.py
+  -> ocr_training/streaming_dataset.py
+
+korean_public_doc_rec.yml
+  -> ocr_training/configs/korean_public_doc_rec.yml
+
+.env.ocr.example
+  -> .env.ocr.example
+
+compose.ocr-gpu.yaml
+  -> compose.ocr-gpu.yaml
+
+aihub_bbox.patch
+  -> aihub.py valid_annotation_indices()의 bbox 최소조건을 실제 crop 조건에 맞추는 패치
+
+중요:
+현재 PC의 .env.ocr은 Git에서 제외되므로 직접 아래 값을 수정하세요.
+
+OCR_EPOCHS=2
+OCR_BATCH_SIZE=128
+OCR_SAVE_BATCH_STEP=500
+
+기존 batch=64 checkpoint는 새 batch=128 학습에서 재사용하지 않는 것을 권장합니다.

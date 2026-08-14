@@ -1,0 +1,61 @@
+RTX 5090 performance patch
+
+Changes
+-------
+1. AMP: O1 -> O2 (FP16, dynamic loss scaling)
+2. cal_metric_during_train: true -> false
+   - avoids CTC decode + accuracy/edit-distance calculation every training batch
+   - dev evaluation every 10,000 steps remains enabled
+3. print_batch_step: 20 -> 100
+4. Recoverable streaming sample failures are no longer printed individually.
+   The loader still retries up to 32 dispersed samples and raises a detailed
+   error only if all retries fail.
+5. Epochs and batch size remain:
+   OCR_EPOCHS=2
+   OCR_BATCH_SIZE=128
+
+Apply
+-----
+streaming_dataset.py
+  -> ocr_training/streaming_dataset.py
+
+korean_public_doc_rec.yml
+  -> ocr_training/configs/korean_public_doc_rec.yml
+
+.env.ocr.example
+  -> .env.ocr.example
+
+compose.ocr-gpu.yaml
+  -> compose.ocr-gpu.yaml
+
+Your real .env.ocr is ignored by Git. Confirm:
+OCR_EPOCHS=2
+OCR_BATCH_SIZE=128
+OCR_SAVE_BATCH_STEP=500
+
+Important
+---------
+Do not resume an O1 optimizer checkpoint into the new O2 run.
+Back up the current checkpoint directory and start a fresh O2 run.
+
+PowerShell:
+  Rename-Item .\ocr_training\artifacts\checkpoints checkpoints_o1_bs128_backup
+  New-Item -ItemType Directory .\ocr_training\artifacts\checkpoints
+
+Then run from the repository root:
+  bash ocr_training/run_gpu.sh --stage train
+
+Verify the startup config contains:
+  use_amp: True
+  amp_level: O2
+  cal_metric_during_train: False
+  epoch_num: 2
+  batch_size_per_card: 128
+
+Wait for at least global_step 300-500 before comparing speed.
+Send one log line containing:
+  ips
+  avg_batch_cost
+  max_mem_reserved
+  max_mem_allocated
+  eta

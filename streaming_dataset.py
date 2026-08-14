@@ -220,13 +220,9 @@ class AIHubStreamDataSet(Dataset):
             try:
                 result = self._one_sample(current)
                 if result is not None:
-                    if attempt:
-                        self.logger.debug(
-                            "streaming sample %s recovered on attempt %s using sample %s",
-                            original,
-                            attempt + 1,
-                            current,
-                        )
+                    # Recoverable invalid samples are expected in this corpus.
+                    # Keep the hot path silent; only a full retry exhaustion
+                    # raises below with representative failure examples.
                     return result
                 failure = f"{current}: transform returned None"
             except (
@@ -240,9 +236,6 @@ class AIHubStreamDataSet(Dataset):
                 failure = f"{current}: {type(error).__name__}: {error}"
 
             failures.append(failure)
-            if len(failures) <= 3:
-                self.logger.warning("streaming sample failed: %s", failure)
-
             current = self._replacement_index(
                 original,
                 attempt + 1,
